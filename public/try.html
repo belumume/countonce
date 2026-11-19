@@ -21,35 +21,15 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
+<link rel="stylesheet" href="/site.css">
 <style>
-  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
-  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
-  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
-  @font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-Medium.woff2) format("woff2"); font-weight: 500; font-display: swap; }
-  :root {
-    --paper: #f5f3ee; --surface: #ffffff; --ink: #1a1d21; --muted: #4f5660; --line: #ddd8ce; --amber: #f2b21b;
-    --sans: "Plex Sans", system-ui, sans-serif; --mono: "Plex Mono", ui-monospace, monospace;
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.45 var(--sans); }
-  a { color: inherit; }
-  a:focus-visible, button:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
-  header { background: var(--ink); color: var(--paper); }
-  .top { max-width: 1320px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .mark { width: 34px; height: 34px; border-radius: 7px; background: var(--amber); color: var(--ink); display: grid; place-items: center; font: 600 13px var(--mono); flex: none; }
-  h1 { margin: 0; font-size: 20px; font-weight: 700; }
-  .sub { font-size: 14px; color: #d9d5cc; }
-  nav { display: flex; gap: 2px; margin-left: auto; }
-  nav a { color: var(--paper); font-weight: 600; font-size: 15px; padding: 0 10px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 6px; text-decoration: none; }
-  nav a:hover { background: rgb(245 243 238 / .12); }
-  nav a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
-  .intro { max-width: 1320px; margin: 0 auto; padding: 18px 24px 6px; }
+  :root { --page-width: 1320px; }
+  .intro { max-width: var(--page-width); margin: 0 auto; padding: 18px 24px 6px; }
   .intro h2 { margin: 0 0 10px; font-size: 22px; }
   ol.steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; counter-reset: s; }
   ol.steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px 10px 50px; position: relative; font-size: 15px; }
   ol.steps li::before { content: counter(s); position: absolute; left: 12px; top: 10px; width: 28px; height: 28px; border-radius: 6px; background: var(--amber); display: grid; place-items: center; font: 600 15px var(--mono); }
-  .stage { max-width: 1320px; margin: 0 auto; padding: 14px 24px 24px; display: grid; grid-template-columns: 400px 1fr; gap: 24px; align-items: start; }
+  .stage { max-width: var(--page-width); margin: 0 auto; padding: 14px 24px 24px; display: grid; grid-template-columns: 400px 1fr; gap: 24px; align-items: start; }
   .label { margin: 0 0 8px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   /* A plain phone outline: the app runs inside at a phone's size. */
   .phone { width: 380px; height: 780px; border: 12px solid var(--ink); border-radius: 40px; background: var(--ink); overflow: hidden; box-shadow: 0 12px 30px rgb(26 29 33 / .18); }
@@ -73,7 +53,7 @@
   @media (pointer: coarse) and (max-width: 600px), (pointer: coarse) and (max-height: 600px) { .onphone { display: none; } }
   .btn { border: 1.5px solid var(--ink); background: transparent; color: var(--ink); font: 700 15px var(--sans); padding: 0 16px; min-height: 44px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none; }
   .id { font: 500 14px var(--mono); border: 1px solid rgb(26 29 33 / .35); border-radius: 4px; padding: 0 6px; }
-  .honest { max-width: 1320px; margin: 0 auto; padding: 0 24px 40px; }
+  .honest { max-width: var(--page-width); margin: 0 auto; padding: 0 24px 40px; }
   .honest p { margin: 0; font-size: 14px; color: var(--muted); border-top: 2px solid var(--ink); padding-top: 8px; }
   .honest b { color: var(--ink); }
   @media (max-width: 960px) {
@@ -82,10 +62,9 @@
     .board iframe { min-height: 600px; }
     ol.steps { grid-template-columns: 1fr; }
   }
+  @media (max-width: 600px) { .intro, .stage, .honest { padding-left: 12px; padding-right: 12px; } }
   /* On a phone the app fills the screen: no outline, the phone itself is the frame. */
   @media (max-width: 520px) {
-    .top { padding: 10px 16px; } .sub { display: none; } nav { margin-left: -10px; width: 100%; }
-    .intro, .stage, .honest { padding-left: 12px; padding-right: 12px; }
     .phone { width: 100%; height: calc(100svh - 24px); border: 0; border-radius: 0; box-shadow: none; }
     .phone iframe { border-radius: 0; border: 1px solid var(--line); }
   }
@@ -96,8 +75,8 @@
 <header>
   <div class="top">
     <div class="mark" aria-hidden="true">1×</div>
-    <div><h1>CountOnce</h1><div class="sub">Shared stock counts that stay right, even offline</div></div>
-    <nav aria-label="Site"><a href="/">Dashboard</a><a href="/try" aria-current="page">Try it</a><a href="/try-api">API</a><a href="/labels">Labels</a><a href="/demo.mp4" id="videolink" hidden>Video</a></nav>
+    <div><h1 class="brand">CountOnce</h1><div class="sub">Shared stock counts that stay right, even offline</div></div>
+    <nav aria-label="Site"><a href="/">Dashboard</a><a href="/try" aria-current="page">Try it</a><a href="/try-api">API</a><a href="/labels">Labels</a><a href="/demo.mp4">Video</a></nav>
   </div>
 </header>
 
@@ -130,7 +109,7 @@
 </div>
 
 <p class="sr-only" id="announce" role="status"></p>
-<div class="notice" id="notice" role="region" aria-label="New supplier order" hidden>
+<div class="notice on-dark" id="notice" role="region" aria-label="New supplier order" hidden>
   <p id="noticetext"></p>
   <button class="show" id="noticeshow" type="button">Show order</button>
   <button class="close" id="noticeclose" type="button" aria-label="Close this notice">Close</button>
@@ -218,7 +197,6 @@ document.getElementById("noticeclose").onclick = () => {
 };
 document.getElementById("fresh").onclick = () => { notice.hidden = true; id = make(); openVisitor(id); };
 openVisitor(id);
-fetch("/demo.mp4", { method: "HEAD" }).then((r) => { if (r.ok && (r.headers.get("content-type") ?? "").startsWith("video")) document.getElementById("videolink").hidden = false; }).catch(() => {});
 </script>
 </body>
 </html>

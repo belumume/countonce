@@ -1,0 +1,39 @@
+/* Shared by every page of the site: type, colours, focus outlines and the header with its menu.
+   The same colours and type as the staff app (app/lib/ui/theme.dart): black ink on paper, as on the
+   shelf labels, with safety amber for what needs action. Colour is never the only signal.
+   Each page adds only its own layout, and sets --page-width so its header lines up with its content. */
+@font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-Medium.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+:root {
+  --paper: #f5f3ee; --surface: #ffffff; --ink: #1a1d21; --muted: #4f5660; --line: #ddd8ce; --amber: #f2b21b;
+  --sans: "Plex Sans", system-ui, sans-serif; --mono: "Plex Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.45 var(--sans); }
+a { color: inherit; }
+/* Two rings, so the focus shows on paper, on white and on black: an amber ring against the element and
+   a black outline around it. On black (the header, the order notice on /try) it is the reverse: a black gap,
+   then an amber outline. */
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible, pre:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; box-shadow: 0 0 0 2px var(--amber); }
+header a:focus-visible, .on-dark :focus-visible { outline-color: var(--amber); box-shadow: 0 0 0 2px var(--ink); }
+
+header { background: var(--ink); color: var(--paper); }
+.top { max-width: var(--page-width, 1320px); margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mark { width: 34px; height: 34px; border-radius: 7px; background: var(--amber); color: var(--ink); display: grid; place-items: center; font: 600 13px var(--mono); flex: none; }
+.brand { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.45; }
+.sub { font-size: 14px; color: #d9d5cc; }
+header nav { display: flex; gap: 2px; margin-left: auto; flex-shrink: 0; }
+header nav a { color: var(--paper); font-weight: 600; font-size: 15px; padding: 0 10px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 6px; text-decoration: none; }
+header nav a:hover { background: rgb(245 243 238 / .12); }
+header nav a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+/* Phone width: the menu takes its own row under the name. */
+@media (max-width: 600px) {
+  .top { padding: 10px 12px; }
+  .brand { font-size: 18px; }
+  .sub { display: none; }
+  header nav { order: 3; margin-left: -10px; width: 100%; flex-wrap: wrap; }
+}
