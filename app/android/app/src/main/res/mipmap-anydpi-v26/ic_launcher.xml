@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon from Android 8: "1×" in ink on the amber tag. The glyphs sit inside the 66 dp safe
+     circle of the 108 dp canvas, so every launcher mask keeps them whole. From Android 13 the same
+     glyphs are the themed (monochrome) icon. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/brand_amber" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+</adaptive-icon>

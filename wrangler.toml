@@ -1,0 +1,9 @@
+name = "countonce"
+pages_build_output_dir = "./public"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "countonce"
+database_id = "3712a9ad-134c-48ef-8401-f137eb221678"
+migrations_dir = "migrations"

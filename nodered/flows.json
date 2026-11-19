@@ -1,0 +1,1323 @@
+[
+  {
+    "id": "countoncebrokertab",
+    "type": "tab",
+    "label": "MQTT broker",
+    "disabled": false,
+    "info": "The MQTT broker, running inside Node-RED (node-red-contrib-aedes) on port 1883.\nFlow 1 publishes to it and flow 2 subscribes to it. Clients log in as countonce with the password in the\nenvironment variable COUNTONCE_MQTT_PASSWORD. Another broker (for example Mosquitto) can replace it:\nchange the server in the 'CountOnce broker' configuration node."
+  },
+  {
+    "id": "countonceaedes",
+    "type": "aedes broker",
+    "z": "countoncebrokertab",
+    "name": "MQTT broker on port 1883",
+    "mqtt_port": 1883,
+    "mqtt_ws_bind": "port",
+    "mqtt_ws_port": "",
+    "mqtt_ws_path": "",
+    "cert": "",
+    "key": "",
+    "certname": "",
+    "keyname": "",
+    "persistence_bind": "memory",
+    "dburl": "",
+    "usetls": false,
+    "credentials": {
+      "username": "countonce",
+      "password": "${COUNTONCE_MQTT_PASSWORD}"
+    },
+    "x": 170,
+    "y": 80,
+    "wires": [
+      [],
+      []
+    ]
+  },
+  {
+    "id": "countoncebrokerconf",
+    "type": "mqtt-broker",
+    "name": "CountOnce broker",
+    "broker": "localhost",
+    "port": "1883",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": "",
+    "credentials": {
+      "user": "countonce",
+      "password": "${COUNTONCE_MQTT_PASSWORD}"
+    }
+  },
+  {
+    "id": "countoncetab",
+    "type": "tab",
+    "label": "1. Stock state",
+    "disabled": false,
+    "info": "Flow 1. Every 15 seconds it reads the stock from the CountOnce API (the address in the environment variable\nCOUNTONCE_API, or the live site when that is not set). For each item it publishes the item's state to the MQTT\ntopic countonce/stock/<item id> (QoS 1, retained): quantity, reorder point, whether it is low, and its open\nsupplier order if it has one. Whether the API answered goes to countonce/api. It does not know who listens."
+  },
+  {
+    "id": "countonceinject",
+    "type": "inject",
+    "z": "countoncetab",
+    "name": "Every 15 seconds",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "url",
+        "v": "$replace($env(\"COUNTONCE_API\") ? $env(\"COUNTONCE_API\") : \"https://countonce.pages.dev\", /\\/+$/, \"\") & \"/api/state\"",
+        "vt": "jsonata"
+      },
+      {
+        "p": "requestTimeout",
+        "v": "10000",
+        "vt": "num"
+      }
+    ],
+    "repeat": "15",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 150,
+    "y": 80,
+    "wires": [
+      [
+        "countoncehttp"
+      ]
+    ]
+  },
+  {
+    "id": "countoncehttp",
+    "type": "http request",
+    "z": "countoncetab",
+    "name": "Read stock from our API",
+    "method": "GET",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 370,
+    "y": 80,
+    "wires": [
+      [
+        "countonceok"
+      ]
+    ]
+  },
+  {
+    "id": "countonceok",
+    "type": "switch",
+    "z": "countoncetab",
+    "name": "Did the API answer?",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "jsonata_exp",
+        "v": "statusCode = 200 and $type(payload.items) = \"array\"",
+        "vt": "jsonata"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 2,
+    "x": 600,
+    "y": 80,
+    "wires": [
+      [
+        "countonceitems",
+        "countonceapiup"
+      ],
+      [
+        "countonceapidown"
+      ]
+    ]
+  },
+  {
+    "id": "countonceapiup",
+    "type": "change",
+    "z": "countoncetab",
+    "name": "API answering",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "countonce/api",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"ok\": true}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 830,
+    "y": 160,
+    "wires": [
+      [
+        "countoncepub"
+      ]
+    ]
+  },
+  {
+    "id": "countonceapidown",
+    "type": "change",
+    "z": "countoncetab",
+    "name": "API not answering",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "countonce/api",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"ok\": false, \"problem\": $type(statusCode) = \"string\" ? \"no connection, \" & statusCode : \"answer \" & $string(statusCode)}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 840,
+    "y": 220,
+    "wires": [
+      [
+        "countoncepub"
+      ]
+    ]
+  },
+  {
+    "id": "countonceitems",
+    "type": "change",
+    "z": "countoncetab",
+    "name": "Each item with its open order",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "[$map(payload.items, function($i) { $merge([$i, {\"open_order\": ($$.payload.orders[item_id = $i.id and status = \"open\"])[0]}]) })]",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 850,
+    "y": 80,
+    "wires": [
+      [
+        "countoncesplit"
+      ]
+    ]
+  },
+  {
+    "id": "countoncesplit",
+    "type": "split",
+    "z": "countoncetab",
+    "name": "One item at a time",
+    "splt": "\\n",
+    "spltType": "str",
+    "arraySplt": 1,
+    "arraySpltType": "len",
+    "stream": false,
+    "addname": "",
+    "x": 1080,
+    "y": 80,
+    "wires": [
+      [
+        "countoncestate"
+      ]
+    ]
+  },
+  {
+    "id": "countoncestate",
+    "type": "change",
+    "z": "countoncetab",
+    "name": "Is it at or below its reorder point?",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"countonce/stock/\" & payload.id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload.low",
+        "pt": "msg",
+        "to": "payload.qty <= payload.reorder_point",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload.checked_at",
+        "pt": "msg",
+        "to": "$now()",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 1330,
+    "y": 80,
+    "wires": [
+      [
+        "countoncepub",
+        "countoncelowdebug"
+      ]
+    ]
+  },
+  {
+    "id": "countoncepub",
+    "type": "mqtt out",
+    "z": "countoncetab",
+    "name": "Publish (topic in the message)",
+    "topic": "",
+    "qos": "1",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "countoncebrokerconf",
+    "x": 1650,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "countoncelowdebug",
+    "type": "debug",
+    "z": "countoncetab",
+    "name": "Published",
+    "active": true,
+    "tosidebar": false,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.id & \": \" & payload.qty & (payload.low ? \" (low)\" : \"\")",
+    "statusType": "jsonata",
+    "x": 1590,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "countoncetab2",
+    "type": "tab",
+    "label": "2. Supplier order and alert",
+    "disabled": false,
+    "info": "Flow 2. It subscribes to countonce/stock/+ and countonce/api.\n- An item that is low and has no open order: it asks the API for a supplier order, naming only the item.\n  The API checks the real stock and takes the quantity from the database, so a stale or fake message\n  cannot order anything, and it never keeps two open orders for one item (rule 3).\n- Every open order it sees, in a stock message or in the API's reply, is alerted once: on the dashboard\n  and on the MQTT topic countonce/alerts. So an order raised by someone else, or whose reply was lost, is\n  still alerted. After a restart the open orders are listed again.\n- A problem (no answer, a refusal) is alerted once per item until it clears; the next stock message,\n  15 seconds later, is the retry. The API going down and coming back is alerted once each."
+  },
+  {
+    "id": "countoncesub",
+    "type": "mqtt in",
+    "z": "countoncetab2",
+    "name": "Subscribe countonce/stock/+",
+    "topic": "countonce/stock/+",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "countoncebrokerconf",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 100,
+    "wires": [
+      [
+        "countoncewhat"
+      ]
+    ]
+  },
+  {
+    "id": "countoncewhat",
+    "type": "switch",
+    "z": "countoncetab2",
+    "name": "What does the stock say?",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "jsonata_exp",
+        "v": "$exists(payload.open_order)",
+        "vt": "jsonata"
+      },
+      {
+        "t": "jsonata_exp",
+        "v": "payload.low = true",
+        "vt": "jsonata"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 3,
+    "x": 380,
+    "y": 100,
+    "wires": [
+      [
+        "countonceseen",
+        "countonceclear"
+      ],
+      [
+        "countoncebuild"
+      ],
+      [
+        "countonceclear"
+      ]
+    ]
+  },
+  {
+    "id": "countonceseen",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Its open order",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"order/\" & payload.id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "order",
+        "pt": "msg",
+        "to": "payload.open_order",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "stock",
+        "pt": "msg",
+        "to": "payload",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "payload.open_order.id",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 660,
+    "y": 40,
+    "wires": [
+      [
+        "countonceneworder"
+      ]
+    ]
+  },
+  {
+    "id": "countoncebuild",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Build the order request",
+    "rules": [
+      {
+        "t": "set",
+        "p": "item_id",
+        "pt": "msg",
+        "to": "payload.id",
+        "tot": "msg"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"request_id\": \"nodered-\" & payload.id & \"-\" & _msgid, \"item_id\": payload.id, \"raised_by\": \"Node-RED\"}",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "headers",
+        "pt": "msg",
+        "to": "{\"content-type\": \"application/json\", \"x-staff-key\": $env(\"COUNTONCE_STAFF_KEY\")}",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "url",
+        "pt": "msg",
+        "to": "$replace($env(\"COUNTONCE_API\") ? $env(\"COUNTONCE_API\") : \"https://countonce.pages.dev\", /\\/+$/, \"\") & \"/api/order\"",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "requestTimeout",
+        "pt": "msg",
+        "to": "10000",
+        "tot": "num"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 660,
+    "y": 100,
+    "wires": [
+      [
+        "countoncepost"
+      ]
+    ]
+  },
+  {
+    "id": "countoncepost",
+    "type": "http request",
+    "z": "countoncetab2",
+    "name": "POST /api/order",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 900,
+    "y": 100,
+    "wires": [
+      [
+        "countonceresult"
+      ]
+    ]
+  },
+  {
+    "id": "countonceresult",
+    "type": "switch",
+    "z": "countoncetab2",
+    "name": "What did the API say?",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "jsonata_exp",
+        "v": "payload.outcome in [\"ordered\", \"already open\"]",
+        "vt": "jsonata"
+      },
+      {
+        "t": "jsonata_exp",
+        "v": "payload.outcome = \"not needed\" or statusCode = 503",
+        "vt": "jsonata"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 3,
+    "x": 1110,
+    "y": 100,
+    "wires": [
+      [
+        "countoncereplied",
+        "countonceanswered"
+      ],
+      [
+        "countonceanswered"
+      ],
+      [
+        "countonceproblem"
+      ]
+    ]
+  },
+  {
+    "id": "countoncereplied",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "The order in the reply",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"order/\" & item_id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "order",
+        "pt": "msg",
+        "to": "payload.order",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "stock",
+        "pt": "msg",
+        "to": "payload.item",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "payload.order.id",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 1350,
+    "y": 90,
+    "wires": [
+      [
+        "countonceneworder"
+      ]
+    ]
+  },
+  {
+    "id": "countonceneworder",
+    "type": "rbe",
+    "z": "countoncetab2",
+    "name": "Only an order not yet alerted",
+    "func": "rbe",
+    "gap": "",
+    "start": "",
+    "inout": "out",
+    "septopics": true,
+    "property": "payload",
+    "topi": "topic",
+    "x": 1610,
+    "y": 40,
+    "wires": [
+      [
+        "countoncealert"
+      ]
+    ]
+  },
+  {
+    "id": "countoncel1",
+    "type": "link out",
+    "z": "countoncetab2",
+    "name": "to Every alert",
+    "mode": "link",
+    "links": [
+      "countoncealertsin"
+    ],
+    "x": 2090,
+    "y": 40,
+    "wires": [],
+    "l": true
+  },
+  {
+    "id": "countoncealert",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Alert: order open",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"When (UTC)\": $now(\"[D01] [MNn,*-3] [H01]:[m01]:[s01]\"), \"Item\": order.item_id, \"Alert\": \"Supplier order #\" & $string(order.id) & \": \" & $string(order.qty) & \" x \" & stock.name & \", raised by \" & order.raised_by & \". Stock is \" & $string(stock.qty) & \", reorder point \" & $string(stock.reorder_point) & \".\"}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 1860,
+    "y": 40,
+    "wires": [
+      [
+        "countoncel1"
+      ]
+    ]
+  },
+  {
+    "id": "countonceproblem",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Describe the problem",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"problem/\" & item_id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "$type(payload) = \"object\" and $exists(payload.reason) ? payload.reason : $type(payload) = \"object\" and $exists(payload.error) ? payload.error & \" (\" & $string(statusCode) & \")\" : \"no answer from the API (\" & $string(statusCode) & \")\"",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 1350,
+    "y": 220,
+    "wires": [
+      [
+        "countonceonce"
+      ]
+    ]
+  },
+  {
+    "id": "countonceanswered",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Answered: no problem now",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"problem/\" & item_id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "none",
+        "tot": "str"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 1360,
+    "y": 160,
+    "wires": [
+      [
+        "countonceonce"
+      ]
+    ]
+  },
+  {
+    "id": "countonceclear",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Not low or ordered: no problem",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "\"problem/\" & payload.id",
+        "tot": "jsonata"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "none",
+        "tot": "str"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 680,
+    "y": 280,
+    "wires": [
+      [
+        "countonceonce"
+      ]
+    ]
+  },
+  {
+    "id": "countonceonce",
+    "type": "rbe",
+    "z": "countoncetab2",
+    "name": "Only when it changes",
+    "func": "rbe",
+    "gap": "",
+    "start": "",
+    "inout": "out",
+    "septopics": true,
+    "property": "payload",
+    "topi": "topic",
+    "x": 1600,
+    "y": 250,
+    "wires": [
+      [
+        "countonceisproblem"
+      ]
+    ]
+  },
+  {
+    "id": "countonceisproblem",
+    "type": "switch",
+    "z": "countoncetab2",
+    "name": "A new problem?",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "neq",
+        "v": "none",
+        "vt": "str"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 1820,
+    "y": 250,
+    "wires": [
+      [
+        "countoncefailed"
+      ]
+    ]
+  },
+  {
+    "id": "countoncel2",
+    "type": "link out",
+    "z": "countoncetab2",
+    "name": "to Every alert",
+    "mode": "link",
+    "links": [
+      "countoncealertsin"
+    ],
+    "x": 2290,
+    "y": 250,
+    "wires": [],
+    "l": true
+  },
+  {
+    "id": "countoncefailed",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Alert: order not raised",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"When (UTC)\": $now(\"[D01] [MNn,*-3] [H01]:[m01]:[s01]\"), \"Item\": item_id, \"Alert\": \"Could not raise a supplier order: \" & payload & \". Node-RED tries again with the next stock message, within 15 seconds.\"}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 2040,
+    "y": 250,
+    "wires": [
+      [
+        "countoncel2"
+      ]
+    ]
+  },
+  {
+    "id": "countonceapisub",
+    "type": "mqtt in",
+    "z": "countoncetab2",
+    "name": "Subscribe countonce/api",
+    "topic": "countonce/api",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "countoncebrokerconf",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 140,
+    "y": 360,
+    "wires": [
+      [
+        "countonceapistate"
+      ]
+    ]
+  },
+  {
+    "id": "countonceapistate",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Answering or not",
+    "rules": [
+      {
+        "t": "set",
+        "p": "topic",
+        "pt": "msg",
+        "to": "api",
+        "tot": "str"
+      },
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "payload.ok ? \"ok\" : payload.problem",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 370,
+    "y": 360,
+    "wires": [
+      [
+        "countonceapionce"
+      ]
+    ]
+  },
+  {
+    "id": "countonceapionce",
+    "type": "rbe",
+    "z": "countoncetab2",
+    "name": "Only when it changes",
+    "func": "rbe",
+    "gap": "",
+    "start": "",
+    "inout": "out",
+    "septopics": true,
+    "property": "payload",
+    "topi": "topic",
+    "x": 590,
+    "y": 360,
+    "wires": [
+      [
+        "countonceapialert"
+      ]
+    ]
+  },
+  {
+    "id": "countoncel3",
+    "type": "link out",
+    "z": "countoncetab2",
+    "name": "to Every alert",
+    "mode": "link",
+    "links": [
+      "countoncealertsin"
+    ],
+    "x": 1050,
+    "y": 360,
+    "wires": [],
+    "l": true
+  },
+  {
+    "id": "countonceapialert",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Alert: API state",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"When (UTC)\": $now(\"[D01] [MNn,*-3] [H01]:[m01]:[s01]\"), \"Item\": \"-\", \"Alert\": payload = \"ok\" ? \"The API is answering.\" : \"Cannot read stock from the API (\" & payload & \"). Orders wait until it answers.\"}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 810,
+    "y": 360,
+    "wires": [
+      [
+        "countoncel3"
+      ]
+    ]
+  },
+  {
+    "id": "countoncepwcheck",
+    "type": "inject",
+    "z": "countoncetab2",
+    "name": "At start",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 440,
+    "wires": [
+      [
+        "countoncepwshort"
+      ]
+    ]
+  },
+  {
+    "id": "countoncepwshort",
+    "type": "switch",
+    "z": "countoncetab2",
+    "name": "MQTT password set?",
+    "property": "payload",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "jsonata_exp",
+        "v": "$not($exists($env(\"COUNTONCE_MQTT_PASSWORD\"))) or $length($env(\"COUNTONCE_MQTT_PASSWORD\")) < 8",
+        "vt": "jsonata"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 1,
+    "x": 350,
+    "y": 440,
+    "wires": [
+      [
+        "countoncepwalert"
+      ]
+    ]
+  },
+  {
+    "id": "countoncel4",
+    "type": "link out",
+    "z": "countoncetab2",
+    "name": "to Every alert",
+    "mode": "link",
+    "links": [
+      "countoncealertsin"
+    ],
+    "x": 860,
+    "y": 440,
+    "wires": [],
+    "l": true
+  },
+  {
+    "id": "countoncepwalert",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Alert: broker not protected",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "{\"When (UTC)\": $now(\"[D01] [MNn,*-3] [H01]:[m01]:[s01]\"), \"Item\": \"-\", \"Alert\": \"COUNTONCE_MQTT_PASSWORD is not set (or is under 8 characters), so the MQTT broker is not protected. Set it and restart Node-RED.\"}",
+        "tot": "jsonata"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 590,
+    "y": 440,
+    "wires": [
+      [
+        "countoncel4"
+      ]
+    ]
+  },
+  {
+    "id": "countoncealertsin",
+    "type": "link in",
+    "z": "countoncetab2",
+    "name": "Every alert",
+    "links": [
+      "countoncel1",
+      "countoncel2",
+      "countoncel3",
+      "countoncel4"
+    ],
+    "x": 130,
+    "y": 590,
+    "wires": [
+      [
+        "countoncealertout",
+        "countoncetable",
+        "countoncetotext",
+        "countoncealertdebug"
+      ]
+    ]
+  },
+  {
+    "id": "countoncealertout",
+    "type": "mqtt out",
+    "z": "countoncetab2",
+    "name": "Publish countonce/alerts",
+    "topic": "countonce/alerts",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "countoncebrokerconf",
+    "x": 380,
+    "y": 500,
+    "wires": []
+  },
+  {
+    "id": "countoncealertdebug",
+    "type": "debug",
+    "z": "countoncetab2",
+    "name": "Alert",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.Alert",
+    "statusType": "jsonata",
+    "x": 350,
+    "y": 680,
+    "wires": []
+  },
+  {
+    "id": "countoncetotext",
+    "type": "change",
+    "z": "countoncetab2",
+    "name": "Message text only",
+    "rules": [
+      {
+        "t": "set",
+        "p": "payload",
+        "pt": "msg",
+        "to": "payload.Alert",
+        "tot": "msg"
+      }
+    ],
+    "action": "",
+    "property": "",
+    "from": "",
+    "to": "",
+    "reg": false,
+    "x": 380,
+    "y": 620,
+    "wires": [
+      [
+        "countoncetoast"
+      ]
+    ]
+  },
+  {
+    "id": "countonceui",
+    "type": "ui-base",
+    "name": "CountOnce",
+    "path": "/dashboard",
+    "appIcon": "",
+    "includeClientData": true,
+    "acceptsClientConfig": [
+      "ui-notification",
+      "ui-control"
+    ],
+    "showPathInSidebar": false,
+    "headerContent": "page",
+    "navigationStyle": "default",
+    "titleBarStyle": "default",
+    "showReconnectNotification": true,
+    "notificationDisplayTime": 1,
+    "showDisconnectNotification": true,
+    "allowInstall": false
+  },
+  {
+    "id": "countoncetheme",
+    "type": "ui-theme",
+    "name": "CountOnce",
+    "colors": {
+      "surface": "#16202a",
+      "primary": "#0b5cad",
+      "bgPage": "#f4f5f7",
+      "groupBg": "#ffffff",
+      "groupOutline": "#d5dae0"
+    },
+    "sizes": {
+      "density": "default",
+      "pagePadding": "12px",
+      "groupGap": "12px",
+      "groupBorderRadius": "4px",
+      "widgetGap": "12px"
+    }
+  },
+  {
+    "id": "countoncepage",
+    "type": "ui-page",
+    "name": "Stock alerts",
+    "ui": "countonceui",
+    "path": "/alerts",
+    "icon": "bell-alert",
+    "layout": "grid",
+    "theme": "countoncetheme",
+    "breakpoints": [
+      {
+        "name": "Default",
+        "px": "0",
+        "cols": "3"
+      },
+      {
+        "name": "Tablet",
+        "px": "576",
+        "cols": "6"
+      },
+      {
+        "name": "Small Desktop",
+        "px": "768",
+        "cols": "9"
+      },
+      {
+        "name": "Desktop",
+        "px": "1024",
+        "cols": "12"
+      }
+    ],
+    "order": 1,
+    "className": "",
+    "visible": "true",
+    "disabled": "false"
+  },
+  {
+    "id": "countoncegroup",
+    "type": "ui-group",
+    "name": "Alerts since Node-RED started",
+    "page": "countoncepage",
+    "width": "12",
+    "height": "1",
+    "order": 1,
+    "showTitle": true,
+    "className": "",
+    "visible": "true",
+    "disabled": "false",
+    "groupType": "default"
+  },
+  {
+    "id": "countoncetable",
+    "type": "ui-table",
+    "z": "countoncetab2",
+    "group": "countoncegroup",
+    "name": "Alert list",
+    "label": "",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "maxrows": 50,
+    "passthru": false,
+    "autocols": true,
+    "showSearch": false,
+    "deselect": true,
+    "selectionType": "none",
+    "columns": [],
+    "mobileBreakpoint": "sm",
+    "mobileBreakpointType": "defaults",
+    "action": "append",
+    "className": "",
+    "x": 350,
+    "y": 560,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "countoncetoast",
+    "type": "ui-notification",
+    "z": "countoncetab2",
+    "ui": "countonceui",
+    "position": "top right",
+    "colorDefault": true,
+    "color": "#000000",
+    "displayTime": "10",
+    "showCountdown": true,
+    "outputs": 1,
+    "allowDismiss": true,
+    "dismissText": "Close",
+    "allowConfirm": false,
+    "confirmText": "Confirm",
+    "raw": false,
+    "className": "",
+    "name": "Alert on screen",
+    "x": 620,
+    "y": 620,
+    "wires": [
+      []
+    ]
+  }
+]

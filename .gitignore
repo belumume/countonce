@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+.dev.vars
+public/app/
+sim/outbox.json
+.env
+/.c[l]aude/
+docs/icon/build/

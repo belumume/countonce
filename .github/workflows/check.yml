@@ -1,0 +1,37 @@
+# On every pull request and every push to main: start the API on the runner and fire the
+# checks and the simulator at it, and run the staff app's tests. A push to any other branch
+# is tested by its pull request, and a newer push to a pull request cancels the older run.
+name: check
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: check-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run db:local
+      # A staff key that exists only on the runner, so the key checks run too.
+      - run: npx wrangler pages dev --port 8788 --binding STAFF_KEY=ci-only-key > wrangler.log 2>&1 &
+      - run: for i in $(seq 1 60); do curl -sf http://localhost:8788/api/state > /dev/null && exit 0; sleep 1; done; cat wrangler.log; exit 1
+      - run: npm run check -- http://localhost:8788
+        env: { COUNTONCE_STAFF_KEY: ci-only-key }
+      - run: node sim/simulate.mjs http://localhost:8788
+      - run: node sim/simulate.mjs http://localhost:8788 --stop-after 60 --seed 3 && node sim/simulate.mjs http://localhost:8788 --resume --seed 3
+  app:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, flutter-version: 3.47.7 }
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

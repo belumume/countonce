@@ -1,0 +1,4 @@
+{
+  "countonceaedes": { "username": "countonce", "password": "${COUNTONCE_MQTT_PASSWORD}" },
+  "countoncebrokerconf": { "user": "countonce", "password": "${COUNTONCE_MQTT_PASSWORD}" }
+}

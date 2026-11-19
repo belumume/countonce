@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1a1d21">
+<title>CountOnce: stock dashboard</title>
+<meta name="description" content="CountOnce keeps a shared stock count right, even offline. See the current stock and supplier orders, and watch CountOnce prevent two common counting mistakes.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CountOnce">
+<meta property="og:title" content="CountOnce: stock dashboard">
+<meta property="og:description" content="A stock dashboard where every scan is counted exactly once, even when phones lose signal.">
+<meta property="og:url" content="https://countonce.pages.dev/">
+<meta property="og:image" content="https://countonce.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The CountOnce staff app beside the dashboard, both showing the same practice stock">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://countonce.pages.dev/">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  /* The same colours and type as the staff app (app/lib/ui/theme.dart): black ink on paper, as on
+     the shelf labels, with safety amber for what needs action. Colour is never the only signal. */
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-Medium.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+  @font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+  :root {
+    --paper: #f5f3ee; --surface: #ffffff; --ink: #1a1d21; --ink2: #2c3036; --muted: #4f5660; --line: #ddd8ce;
+    --amber: #f2b21b; --ok: #1b7a46; --ok-bg: #e5f2ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+    --sans: "Plex Sans", system-ui, sans-serif; --mono: "Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.45 var(--sans); }
+  header { background: var(--ink); color: var(--paper); }
+  .top { max-width: 1240px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  .mark { width: 34px; height: 34px; border-radius: 7px; background: var(--amber); color: var(--ink); display: grid; place-items: center; font: 600 13px var(--mono); flex: none; }
+  h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  .sub { font-size: 14px; color: #d9d5cc; }
+  nav.links { display: flex; gap: 2px; margin-left: 8px; }
+  nav.links a { color: var(--paper); font-weight: 600; font-size: 15px; padding: 0 10px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 6px; }
+  nav.links a:hover { background: rgb(245 243 238 / .12); }
+  nav.links a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  .vbar { background: var(--amber); color: var(--ink); }
+  .vbar div { max-width: 1240px; margin: 0 auto; padding: 8px 24px; font-size: 15px; font-weight: 600; }
+  #alerts { display: grid; gap: 8px; }
+  #alerts:empty { display: none; }
+  .alert { border: 1.5px solid var(--ink); border-left: 8px solid var(--amber); background: var(--surface); border-radius: 8px; padding: 10px 14px; font-size: 15px; }
+  .alert b { display: block; }
+  body.embed .top { padding: 8px 16px; } body.embed nav.links, body.embed .sub { display: none; }
+  #updated { margin-left: auto; font-size: 14px; color: #d9d5cc; display: flex; align-items: center; gap: 8px; text-align: right; }
+  #updated::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #7fd3a4; flex: none; }
+  #updated.stale::before { background: var(--amber); }
+  main { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: 5fr 6fr; gap: 20px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .wide { grid-column: 1 / -1; }
+  h2 { margin: 0; padding: 14px 16px 10px; font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  h2 select { font: 600 15px var(--sans); color: var(--ink); text-transform: none; letter-spacing: 0; padding: 3px 6px; min-height: 44px; max-width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  .note { margin: 0; padding: 10px 16px 14px; font-size: 14px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 15px; vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding-top: 8px; padding-bottom: 8px; }
+  td.num, th.num { text-align: right; }
+  td.qty { font: 600 26px var(--mono); }
+  .name { font-weight: 600; }
+  .id { display: inline-block; margin-top: 4px; padding: 0 6px; border: 1px solid rgb(26 29 33 / .35); border-radius: 4px; font: 500 13px var(--mono); }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .tag.low, .tag.open { background: var(--amber); color: var(--ink); }
+  .tag.ordered { background: var(--ink); color: var(--paper); }
+  .tag.applied, .tag.received { background: var(--ok-bg); color: var(--ok); }
+  .tag.refused { background: var(--bad-bg); color: var(--bad); }
+  .plus { color: var(--ok); } .minus { color: var(--bad); }
+  .delta { font: 600 16px var(--mono); }
+  .when { white-space: nowrap; }
+  .empty td { color: var(--muted); }
+  .btn { border: 0; background: var(--amber); color: var(--ink); font: 700 15px var(--sans); padding: 10px 18px; border-radius: 8px; cursor: pointer; min-height: 44px; }
+  .btn.quiet { background: transparent; border: 1.5px solid var(--ink); }
+  .btn:disabled { opacity: .5; cursor: wait; }
+  #chart { width: 100%; height: 180px; display: block; }
+  #chart .line { fill: none; stroke: var(--ink); stroke-width: 2.5; }
+  #chart .point { stroke: var(--bad); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  #chart .grid { stroke: var(--line); }
+  #chart text { font: 13px var(--sans); fill: var(--muted); }
+  #chart text.pt { fill: var(--bad); font-weight: 600; }
+  #chart rect.pt-bg { fill: var(--surface); }
+  /* The two cases: their own sample item, kept apart from the real stock above. */
+  .demo { border-style: dashed; border-width: 2px; }
+  .demo h2 { color: var(--ink); }
+  .runwith { margin: 0 16px 6px; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  .mode { display: grid; grid-template-columns: 1fr 1fr; margin: 0 16px 14px; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
+  .mode button { border: 0; background: transparent; padding: 10px 8px; font: 700 15px var(--sans); cursor: pointer; color: var(--ink); min-height: 44px; }
+  .mode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .cases { display: grid; gap: 10px; padding: 0 16px; }
+  .case { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .case p { margin: 0; font-size: 14px; color: var(--muted); }
+  .case strong { display: block; color: var(--ink); font-size: 16px; }
+  .case p.how { grid-column: 1 / -1; padding-top: 8px; border-top: 1px solid var(--line); }
+  #verdict { margin: 14px 16px 0; padding: 12px 14px; border-radius: 8px; font-size: 16px; min-height: 50px; border: 1px dashed var(--line); color: var(--muted); }
+  #verdict.good { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); font-weight: 600; }
+  #verdict.wrong { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); font-weight: 600; }
+  #verdict.good::before { content: "Right: "; } #verdict.wrong::before { content: "Wrong: "; }
+  #orders tr:focus { outline: 3px solid var(--amber); outline-offset: -3px; }
+  #ordermsg { margin: 0; padding: 0 16px 12px; font-size: 14px; color: var(--bad); }
+  #ordermsg:empty { display: none; }
+  dialog { border: 1px solid var(--ink); border-radius: 10px; padding: 20px; max-width: 380px; color: var(--ink); font-family: var(--sans); }
+  dialog::backdrop { background: rgb(26 29 33 / .45); }
+  dialog p { margin: 0 0 12px; font-size: 16px; }
+  dialog label { display: block; font-size: 14px; font-weight: 600; }
+  dialog input { width: 100%; margin: 4px 0 6px; padding: 9px 10px; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
+  dialog .why { min-height: 18px; margin: 0 0 10px; font-size: 14px; color: var(--bad); }
+  dialog menu { display: flex; justify-content: flex-end; gap: 8px; margin: 0; padding: 0; }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+  /* Phone width: every table row becomes a small card, so nothing wraps into a narrow column. */
+  @media (max-width: 600px) {
+    .top { padding: 12px 16px; flex-wrap: wrap; } .sub { display: none; } nav.links { order: 3; margin-left: -10px; width: 100%; } h1 { font-size: 18px; } #updated { font-size: 13px; }
+    main { padding: 12px 12px 32px; gap: 12px; }
+    thead { display: none; }
+    tr { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 16px; border-top: 1px solid var(--line); }
+    td { border: 0; padding: 0; }
+    td:empty { display: none; }
+    td.num { text-align: left; }
+    td.qty, td.num:has(.delta), td.num:has(.btn) { text-align: right; }
+    td[data-label]::before { content: attr(data-label) " "; color: var(--muted); font-size: 13px; }
+    td.full { grid-column: 1 / -1; }
+    td.qty { grid-row: span 2; align-self: center; }
+    .case { grid-template-columns: 1fr; }
+    .case .btn { justify-self: start; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="mark" aria-hidden="true">1×</div>
+    <div><h1>CountOnce</h1><div class="sub">Shared stock counts that stay right, even offline</div></div>
+    <nav class="links" aria-label="Site"><a href="/" aria-current="page">Dashboard</a><a href="/try">Try it</a><a href="/try-api">API</a><a href="/labels">Labels</a><a href="/demo.mp4" id="videolink" hidden>Video</a></nav>
+    <span id="updated">Connecting</span>
+  </div>
+</header>
+<div class="vbar" id="vbar" hidden><div>Practice stock: your own copies of the three items. The real stock is not affected.</div></div>
+<main>
+  <div id="alerts" class="wide" role="status" aria-live="polite"></div>
+  <section class="card">
+    <h2>Current stock</h2>
+    <table>
+      <thead><tr><th id="itemhead">Item and label code</th><th class="num">In stock</th><th class="num">Reorder at</th><th></th></tr></thead>
+      <tbody id="items"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Supplier orders</h2>
+    <table>
+      <thead><tr><th>Order</th><th class="num">Qty</th><th>Raised by</th><th>Status</th><th></th></tr></thead>
+      <tbody id="orders"></tbody>
+    </table>
+    <p id="ordermsg" role="status"></p>
+    <p class="note" id="ordernote">An item at or below its “Reorder at” number is marked Low and needs a supplier order. While its order is open, the item is also marked Ordered and gets no second order. When the delivery arrives, staff press Mark delivered and the stock goes up by the order's amount.</p>
+  </section>
+
+  <section class="card wide">
+    <h2>Stock history <select id="histitem" aria-label="Item"></select></h2>
+    <svg id="chart" role="img" aria-label="Stock over time"></svg>
+    <table>
+      <thead><tr><th>When</th><th class="num">Change</th><th>By</th><th>Result</th><th class="num">Stock after</th></tr></thead>
+      <tbody id="history"></tbody>
+    </table>
+  </section>
+
+  <section class="card demo">
+    <h2>Two ways a stock count goes wrong</h2>
+    <p class="note" style="padding-top:0">These run on a separate sample item, not on the stock above. Run a case the usual way first, then switch to CountOnce and run it again.</p>
+    <p class="runwith" id="runwith">Run each case with</p>
+    <div class="mode" role="group" aria-labelledby="runwith">
+      <button id="mode-unsafe" aria-pressed="true">The usual way</button>
+      <button id="mode-safe" aria-pressed="false">CountOnce</button>
+    </div>
+    <div class="cases">
+      <div class="case">
+        <p><strong>Two people take the last unit at the same moment</strong>One unit is left, and Aisha and Bilal both scan it out.</p>
+        <button class="btn" data-case="race">Run</button>
+        <p class="how">The usual way reads the stock, then saves the change. Between the two steps is a gap in which a second scan can read the same stock. Here the gap is stretched to 0.2 seconds, so the mistake shows every time. CountOnce checks and changes the stock in one step, so there is no gap.</p>
+      </div>
+      <div class="case">
+        <p><strong>A phone sends the same scan twice</strong>Five in stock. Aisha scans one out, but her signal drops before the reply comes back, so the phone sends the scan again.</p>
+        <button class="btn" data-case="repeat">Run</button>
+        <p class="how">Each scan carries an id made on the phone. The usual way counts every send; CountOnce sees the same id again and counts the scan once.</p>
+      </div>
+    </div>
+    <div id="verdict" role="status">The result of each run appears here.</div>
+  </section>
+
+  <section class="card demo">
+    <h2>What happened to the sample item</h2>
+    <p class="note" style="padding-top:0">Scan id shows the id each phone gave its scan.</p>
+    <table>
+      <thead><tr><th class="num">Change</th><th>By</th><th>Result</th><th>Scan id</th></tr></thead>
+      <tbody id="movements"></tbody>
+    </table>
+  </section>
+</main>
+<dialog id="delivery">
+  <form method="dialog">
+    <p id="deliverytext"></p>
+    <div id="keyrow"><label for="key">Staff key</label><input id="key" type="password" autocomplete="off"></div>
+    <p class="why" id="why"></p>
+    <menu><button class="btn quiet" type="button" onclick="this.closest('dialog').close('no')">Cancel</button><button class="btn" id="record" value="yes">Record the delivery</button></menu>
+  </form>
+</dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+// Each browser gets its own throwaway item, so two people trying the page do not disturb each other.
+const ITEM = "DEMO-" + crypto.randomUUID().slice(0, 6).toUpperCase();
+// ?visitor=ID shows one visitor's practice items (the same ones the staff app shows in visitor mode)
+// instead of the real stock. ?embed=1 is for the playground page, which shows this page in a frame.
+const params = new URLSearchParams(location.search);
+const VISITOR = /^[A-Z0-9]{8}$/.test(params.get("visitor") ?? "") ? params.get("visitor") : null;
+const EMBED = params.get("embed") === "1";
+if (EMBED) document.body.classList.add("embed");
+if (VISITOR) {
+  $("vbar").hidden = false;
+  $("ordernote").textContent = "An item at or below its “Reorder at” number is marked Low, and CountOnce raises a supplier order for it within a few seconds. While that order is open, the item is also marked Ordered and gets no second order. When the delivery arrives, press Mark delivered and the stock goes up by the order's amount.";
+}
+let unsafe = true;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const isDemo = (id) => id.startsWith("DEMO-");
+const signed = (d) => `<span class="delta ${d > 0 ? "plus" : "minus"}">${d > 0 ? "+" : "−"}${Math.abs(d)}</span>`;
+// The words shown for each result and order status; the API's own name stays as the tag's class.
+const RESULT = { applied: "Recorded", refused: "Refused", rejected: "Not accepted" };
+const STATUS = { open: "Open", received: "Delivered" };
+const tag = (k, words) => `<span class="tag ${esc(k)}">${esc(words[k] ?? k)}</span>`;
+// Automatic orders on the real stock are asked for by the reorder flow (Node-RED); to the reader they are
+// CountOnce's own, like a visitor's. Any other name (a person, a script) is shown as sent.
+const who = (r) => (r === "Node-RED" ? "CountOnce" : r);
+// A table is redrawn only when its rows change, so a 3-second read does not take the keyboard focus off a button.
+const setRows = (el, html) => {
+  if (el.drawn === html) return;
+  const a = document.activeElement;
+  const inside = el.contains(a);
+  const was = inside ? (a.dataset.order ? `[data-order="${a.dataset.order}"]` : a.id ? `#${CSS.escape(a.id)}` : null) : null;
+  const row = inside ? a.closest("tr[id]")?.id : null;
+  el.innerHTML = html;
+  el.drawn = html;
+  const back = (was && el.querySelector(was)) || (row && el.querySelector(`#${CSS.escape(row)}`));
+  back?.focus({ preventScroll: true });
+};
+
+// The API stores times in UTC ("2026-11-03 01:21:04"). They are shown in the viewer's own time:
+// just the time for today, the date as well for older ones.
+const parse = (t) => new Date(t.replace(" ", "T") + "Z");
+function when(t) {
+  const d = parse(t), now = new Date();
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === now.toDateString() ? time : `${d.toLocaleDateString([], { day: "numeric", month: "short" })}, ${time}`;
+}
+
+// The page asks for the staff key in a password field and keeps it only until this tab is closed.
+// A tab opened before the rename kept the key under the earlier name; it is moved once, then read from the new one.
+const KEY_NAME = "countonce.key", OLD_KEY_NAME = "p" + "14.key";
+try {
+  const old = sessionStorage.getItem(OLD_KEY_NAME);
+  if (old !== null) {
+    if (sessionStorage.getItem(KEY_NAME) === null) sessionStorage.setItem(KEY_NAME, old);
+    sessionStorage.removeItem(OLD_KEY_NAME);
+  }
+} catch {}
+const savedKey = () => { try { return sessionStorage.getItem(KEY_NAME) ?? ""; } catch { return ""; } };
+const saveKey = (key) => { try { sessionStorage.setItem(KEY_NAME, key); } catch {} };
+// The reorder step for a visitor's items. For real stock Node-RED runs it every 15 seconds; here the page
+// runs it after each read, with the same request, which only names the item. The API decides whether the item
+// is low and how many to order, and the database allows one open order per item, so asking again is harmless.
+// Asked once per shortage: an item is forgotten once it is above its reorder point again or has an open
+// order, so the next shortage after a delivery is asked for again.
+const asked = new Set();
+function reorder(v) {
+  const open = new Set(v.orders.filter((o) => o.status === "open").map((o) => o.item_id));
+  for (const i of v.items) {
+    if (i.qty > i.reorder_point || open.has(i.id) || !i.reorder_qty) { asked.delete(i.id); continue; }
+    if (asked.has(i.id)) continue;
+    asked.add(i.id);
+    post("/api/order", { request_id: crypto.randomUUID(), item_id: i.id, raised_by: "CountOnce" })
+      // A full read first, so the Supplier orders table already shows the order the alert points to.
+      .then(async (r) => { if (r.outcome === "ordered" && !r.repeated) { await refresh().catch(() => {}); alertOrder(r.order, i); } })
+      .catch(() => asked.delete(i.id));
+  }
+}
+function alertOrder(o, i) {
+  const at = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const level = i.qty === i.reorder_point ? `fell to ${i.qty}, the item's reorder level` : `fell to ${i.qty}, below the item's reorder level of ${i.reorder_point}`;
+  // Inside the /try page the page itself announces the order, wherever the visitor has scrolled, and points
+  // to its row in Supplier orders; a second announcement here would say the same thing twice.
+  if (EMBED && parent !== window) {
+    parent.postMessage({ type: "countonce-order", id: o.id, qty: o.qty, name: i.name, level }, location.origin);
+    return;
+  }
+  const el = document.createElement("div");
+  el.className = "alert";
+  el.innerHTML = `<b>Supplier order #${o.id}: ${o.qty} × ${esc(i.name)}</b>Raised by CountOnce at ${at}, when stock ${level}.`;
+  $("alerts").prepend(el);
+  while ($("alerts").children.length > 3) $("alerts").lastChild.remove();
+}
+const post = (path, body, key = "") =>
+  fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-staff-key": key }, body: JSON.stringify(body) })
+    .then(async (r) => ({ status: r.status, ...(await r.json()) }));
+
+// "Updated just now" while the page is getting answers; says how old the data is when it is not.
+let lastOk = 0;
+function showUpdated() {
+  if (!lastOk) return;
+  // In whole minutes, so the text changes rarely.
+  const s = Math.round((Date.now() - lastOk) / 1000);
+  const stale = s > 15;
+  const min = Math.max(1, Math.round(s / 60));
+  $("updated").className = stale ? "stale" : "";
+  $("updated").textContent = !stale ? "Updated just now"
+    : `No connection. Showing stock from ${s < 60 ? "under a minute" : min + " min"} ago`;
+}
+setInterval(showUpdated, 1000);
+
+// In visitor view the 3-second poll reads only the visitor's items (poll = true); the page's own test item,
+// used by the two cases, is read again only when a case runs, so an open playground tab costs one request
+// per read, not two.
+// Reads can overlap (a poll while a case runs). Each read is numbered. A poll that finishes after a newer read
+// was drawn is dropped; a full read (one that fetched the test item) is dropped only after a newer full read,
+// so a case's own read is never thrown away by a poll.
+let visitorAsked = false, readNo = 0, drawnNo = 0, fullNo = 0;
+async function refresh(poll = false) {
+  const no = ++readNo;
+  const reuse = VISITOR && poll && lastState.movements;
+  const fresh = reuse ? null : await fetch("/api/state?item=" + ITEM).then((r) => r.json());
+  let v = null;
+  if (VISITOR) {
+    // The visitor's own items replace the real stock in the stock, orders and history cards.
+    v = await fetch("/api/state?visitor=" + VISITOR).then((r) => r.json());
+    // Made at most once per page load: if the real items they copy were missing, asking again every
+    // 3 seconds would change nothing.
+    if (!v.items.length && !visitorAsked) { visitorAsked = true; v = await post("/api/visitor", { visitor: VISITOR }); }
+  }
+  if (fresh ? no < fullNo : no < drawnNo) return (fresh ?? lastState).items.find((i) => i.id === ITEM)?.qty;
+  drawnNo = Math.max(drawnNo, no);
+  if (fresh) fullNo = no;
+  // The test item and its ledger come from this read, or (for a poll in visitor view) from the last one drawn.
+  const s = fresh ?? { ...lastState, items: lastState.items.filter((i) => i.id === ITEM) };
+  if (VISITOR) {
+    s.items = [...v.items, ...s.items.filter((i) => i.id === ITEM)];
+    s.orders = v.orders;
+    reorder(v);
+  }
+  lastOk = Date.now(); showUpdated();
+  const real = s.items.filter((i) => (VISITOR ? i.id !== ITEM : !isDemo(i.id)));
+  const ordered = new Set(s.orders.filter((o) => o.status === "open").map((o) => o.item_id));
+  setRows($("items"), real.map((i) => `<tr>
+    <td><span class="name">${esc(i.name)}</span><br><span class="id">${esc(i.id)}</span>
+      ${i.qty <= i.reorder_point ? '<span class="tag low">Low</span>' : ""}${ordered.has(i.id) ? ' <span class="tag ordered">Ordered</span>' : ""}</td>
+    <td class="num qty">${i.qty}</td>
+    <td class="num" data-label="Reorder at">${i.reorder_point}</td>
+    <td></td></tr>`).join(""));
+  const names = Object.fromEntries(s.items.map((i) => [i.id, i.name]));
+  setRows($("orders"), s.orders.filter((o) => VISITOR || !isDemo(o.item_id)).map((o) => `<tr id="order-${o.id}" tabindex="-1">
+    <td class="full"><span class="name">${esc(names[o.item_id] ?? o.item_id)}</span><br><span style="color:var(--muted);font-size:14px">#${o.id}, ${esc(when(o.created_at))}</span></td>
+    <td class="num" data-label="Qty">${o.qty}</td><td data-label="Raised by">${esc(who(o.raised_by))}</td>
+    <td>${tag(o.status, STATUS)}</td>
+    <td class="num">${o.status === "open" ? `<button class="btn quiet" data-order="${o.id}">Mark delivered</button>` : ""}</td></tr>`).join("")
+    || '<tr class="empty"><td colspan="5">No supplier orders yet.</td></tr>');
+  setRows($("movements"), s.movements.map((m) => `<tr>
+    <td class="num">${signed(m.delta)}</td><td>${esc(m.staff)}</td>
+    <td>${tag(m.outcome, RESULT)}</td>
+    <td class="full"><code class="id">${esc(m.request_id.slice(0, 18))}</code></td></tr>`).join("")
+    || '<tr class="empty"><td colspan="4">No changes yet.</td></tr>');
+  const sel = $("histitem");
+  if (!sel.options.length) {
+    sel.innerHTML = real.map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("");
+    sel.onchange = () => { histSeen = ""; refreshHistory(lastState).catch(() => {}); };
+  }
+  lastState = s;
+  refreshHistory(s).catch(() => { histSeen = ""; });
+  return s.items.find((i) => i.id === ITEM)?.qty;
+}
+
+// The chosen item's movements and a step line of its stock against time, up to now.
+// Fetched again only when that item's stock or reorder point changes, or once a minute
+// (a refused or repeated scan changes neither), so an open tab costs little.
+let histSeen = "", histAt = 0, lastState = { items: [] }, lastHist = null;
+async function refreshHistory(s) {
+  const id = $("histitem").value;
+  const item = s.items.find((i) => i.id === id);
+  if (!item) return;
+  const seen = `${id} ${item.qty} ${item.reorder_point}`;
+  if (seen === histSeen && Date.now() - histAt < 60_000) return;
+  histSeen = seen; histAt = Date.now();
+  const h = await fetch("/api/history?item=" + encodeURIComponent(id)).then((r) => r.json());
+  lastHist = h;
+  setRows($("history"), h.movements.slice(0, 12).map((m) => `<tr>
+    <td class="when">${esc(when(m.created_at))}</td><td class="num" data-label="">${signed(m.delta)}</td><td data-label="By">${esc(m.staff)}</td>
+    <td>${tag(m.outcome, RESULT)}</td><td class="num" data-label="Stock after">${m.qty_after}</td></tr>`).join("")
+    || '<tr class="empty"><td colspan="5">No changes yet.</td></tr>');
+  drawChart(h);
+}
+
+function drawChart(h) {
+  const svg = $("chart");
+  const W = svg.clientWidth || 900, H = 180, L = 40, R = 16, T = 14, B = 26;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  // Steps at each applied change, oldest first, starting from the stock before the oldest one.
+  const applied = [...h.movements].reverse().filter((m) => m.outcome === "applied");
+  const now = Date.now();
+  const steps = applied.map((m) => [parse(m.created_at).getTime(), m.qty_after]);
+  const t0 = steps.length ? steps[0][0] : now - 3600_000;
+  const start = steps.length ? applied[0].qty_after - applied[0].delta : h.item.qty;
+  const span = Math.max(now - t0, 60_000);
+  const from = t0 - span * 0.04;
+  const top = Math.max(start, ...steps.map((p) => p[1]), h.item.reorder_point, 1);
+  const x = (t) => L + ((t - from) / (now - from)) * (W - L - R);
+  const y = (q) => T + (1 - q / top) * (H - T - B);
+  let d = `M${x(from)},${y(start)}`;
+  for (const [t, q] of steps) d += `H${x(t)}V${y(q)}`;
+  d += `H${x(now)}`;
+  // Four time labels along the bottom; the date is added when the history spans more than a day,
+  // and the seconds when it spans under ten minutes, so no two labels read the same.
+  const fmt = (t) => {
+    const dt = new Date(t);
+    const time = dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", ...(now - from < 600_000 && { second: "2-digit" }) });
+    return now - from > 86_400_000 ? `${dt.toLocaleDateString([], { day: "numeric", month: "short" })} ${time}` : time;
+  };
+  // Only the first and last label on a narrow screen, so the labels never overlap.
+  const ticks = (W < 480 ? [0, 3] : [0, 1, 2, 3]).map((k) => from + ((now - from) * k) / 3);
+  // The line's pieces, so the reorder label can be placed where no piece crosses it.
+  const segs = [];
+  let px = x(from), py = y(start);
+  for (const [t, q] of steps) { segs.push([px, py, x(t), py], [x(t), py, x(t), y(q)]); px = x(t); py = y(q); }
+  segs.push([px, py, x(now), py]);
+  const rp = h.item.reorder_point, yr = y(rp);
+  const label = `Reorder at ${rp}`, lw = label.length * 7.4 + 10, lh = 18;
+  const hits = (bx, by) => segs.some(([x1, y1, x2, y2]) =>
+    Math.max(x1, x2) >= bx - 3 && Math.min(x1, x2) <= bx + lw + 3 && Math.max(y1, y2) >= by - 3 && Math.min(y1, y2) <= by + lh + 3);
+  const inside = (bx, by) => by >= 0 && by + lh <= H - B;
+  // Right end first (above, then below the dashed line), then the left end, then the middle.
+  const spots = [W - R - lw, L + 6, L + (W - L - R - lw) / 2].flatMap((bx) => [[bx, yr - lh - 4], [bx, yr + 4]]);
+  const [bx, by] = spots.find(([a, b]) => inside(a, b) && !hits(a, b)) ?? spots.find(([a, b]) => inside(a, b)) ?? spots[0];
+  // Y-axis numbers: the top, the reorder point and 0; the reorder point is left out where it would touch another.
+  const yTicks = [top, 0];
+  if (Math.abs(yr - y(top)) >= 16 && Math.abs(yr - y(0)) >= 16) yTicks.push(rp);
+  svg.innerHTML = `
+    <line class="grid" x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}"/>
+    <path class="line" d="${d}"/>
+    <line class="point" x1="${L}" x2="${W - R}" y1="${yr}" y2="${yr}"/>
+    <rect class="pt-bg" x="${bx}" y="${by}" width="${lw}" height="${lh}" rx="3"/>
+    <text class="pt" x="${bx + 5}" y="${by + 13}">${label}</text>
+    ${yTicks.map((q) => `<text x="${L - 8}" y="${y(q) + 4}" text-anchor="end"${q === rp ? ' class="pt"' : ""}>${q}</text>`).join("")}
+    ${ticks.map((t, k) => { const last = k === ticks.length - 1; return `<text x="${x(t)}" y="${H - 6}" text-anchor="${k === 0 ? "start" : last ? "end" : "middle"}">${last ? "Now" : fmt(t)}</text>`; }).join("")}`;
+}
+addEventListener("resize", () => lastHist && drawChart(lastHist));
+
+function idle(text) {
+  $("verdict").className = "";
+  $("verdict").textContent = text;
+}
+
+function setMode(next) {
+  unsafe = next;
+  $("mode-safe").setAttribute("aria-pressed", String(!unsafe));
+  $("mode-unsafe").setAttribute("aria-pressed", String(unsafe));
+  idle("Now press Run on either case.");
+}
+$("mode-safe").onclick = () => setMode(false);
+$("mode-unsafe").onclick = () => setMode(true);
+
+function verdict(good, text) {
+  $("verdict").className = good ? "good" : "wrong";
+  $("verdict").textContent = text;
+}
+
+async function run(which) {
+  const path = unsafe ? "/api/move-unsafe" : "/api/move";
+  const take = (request_id, staff) => post(path, { request_id, item_id: ITEM, delta: -1, staff });
+  const id = crypto.randomUUID();
+  idle("Running...");
+  if (which === "race") {
+    await post("/api/reset", { item_id: ITEM, qty: 1 });
+    await refresh();
+    const replies = await Promise.all([take("aisha-" + id, "Aisha"), take("bilal-" + id, "Bilal")]);
+    const applied = replies.filter((r) => r.outcome === "applied").length;
+    await refresh();
+    if (applied === 1) verdict(true, "there was 1 unit, and only one person got it. The other was told it was gone.");
+    else if (applied === 0) verdict(true, "neither Aisha nor Bilal got it, because the unit was already gone.");
+    else verdict(false, `there was 1 unit, but both Aisha and Bilal were given it. Both phones saw "1 left" before either change was saved.`);
+  } else {
+    await post("/api/reset", { item_id: ITEM, qty: 5 });
+    await refresh();
+    const first = await take(id, "Aisha");
+    const second = await take(id, "Aisha");
+    const applied = [first, second].filter((r) => r.outcome === "applied" && !r.repeated).length;
+    const qty = await refresh();
+    verdict(applied === 1,
+      applied === 1
+        ? `stock went from 5 to ${qty}. CountOnce saw that the second send was the same scan and did not count it again.`
+        : `stock went from 5 to ${qty}. Aisha's one scan was ${applied === 0 ? "not counted at all" : applied === 2 ? "counted twice" : `counted ${applied} times`}.`);
+  }
+}
+
+document.querySelectorAll("[data-case]").forEach((b) => {
+  b.onclick = async () => {
+    document.querySelectorAll("[data-case]").forEach((x) => (x.disabled = true));
+    try { await run(b.dataset.case); }
+    catch { idle("No reply from the server. Press Run again."); }
+    finally {
+      document.querySelectorAll("[data-case]").forEach((x) => (x.disabled = false));
+    }
+  };
+});
+// The supplier's delivery has arrived: stock goes up by the order's quantity, once.
+// Mark delivered: one dialog confirms the delivery and, when the tab has no key yet, asks for it.
+// It resolves to the key to use, or null if the manager cancels.
+function askDelivery(order, why) {
+  const d = $("delivery");
+  $("deliverytext").textContent = `Has the delivery for order #${order} arrived? The stock goes up by the order's amount.`;
+  $("keyrow").hidden = VISITOR ? true : !!savedKey() && !why;
+  $("why").textContent = why ?? "";
+  $("key").value = "";
+  d.returnValue = "";
+  d.showModal();
+  if (window.frameElement) {
+    const r = window.frameElement.getBoundingClientRect();
+    const seenTop = Math.max(0, -r.top), seenHeight = Math.min(parent.innerHeight, r.bottom) - Math.max(0, r.top);
+    d.style.margin = "0 auto";
+    d.style.bottom = "auto";
+    const centred = seenTop + (seenHeight - d.offsetHeight) / 2;
+    const top = Math.max(seenTop + 12, Math.min(centred, seenTop + seenHeight - d.offsetHeight - 12));
+    d.style.top = Math.max(12, Math.min(top, r.height - d.offsetHeight - 12)) + "px";
+    const fr = window.frameElement.getBoundingClientRect(), dt = fr.top + parseFloat(d.style.top);
+    if (dt < 0 || dt + d.offsetHeight > parent.innerHeight) parent.scrollBy({ top: dt - Math.max(12, (parent.innerHeight - d.offsetHeight) / 2) });
+  }
+  $($("keyrow").hidden ? "record" : "key").focus();
+  return new Promise((done) => {
+    d.onclose = () => done(d.returnValue === "yes" ? ($("keyrow").hidden ? savedKey() : $("key").value.trim()) : null);
+  });
+}
+$("orders").onclick = async (e) => {
+  const b = e.target.closest("button[data-order]");
+  if (!b) return;
+  const order = Number(b.dataset.order);
+  $("ordermsg").textContent = "";
+  let why;
+  for (;;) {
+    const key = await askDelivery(order, why);
+    if (key === null) return;
+    try {
+      const r = await post("/api/order/received", { order_id: order }, key);
+      if (r.status === 401) { saveKey(""); why = "That staff key was not accepted."; continue; }
+      if (r.outcome !== "received") throw new Error(r.error ?? "unexpected answer");
+      saveKey(key);
+      await refresh();
+    } catch (err) {
+      $("ordermsg").textContent = `Delivery for order #${order} was not recorded (${err.message}). Press Mark delivered again.`;
+    }
+    return;
+  }
+};
+fetch("/demo.mp4", { method: "HEAD" }).then((r) => { if (r.ok && (r.headers.get("content-type") ?? "").startsWith("video")) $("videolink").hidden = false; }).catch(() => {});
+post("/api/reset", { item_id: ITEM, qty: 1 }).then(() => refresh())
+  .catch(() => { $("updated").className = "stale"; $("updated").textContent = "Could not reach the server. Reload the page."; });
+// A missed refresh leaves the last result on screen; the next one catches up.
+// Reads stop while the tab is hidden, so a tab left open in the background costs no requests,
+// and start again with an immediate read when it is shown.
+let poll = null;
+const startPolling = () => { if (!poll) poll = setInterval(() => refresh(true).catch(() => {}), 3000); };
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { clearInterval(poll); poll = null; }
+  else { refresh(true).catch(() => {}); startPolling(); }
+});
+if (!document.hidden) startPolling();
+</script>
+</body>
+</html>

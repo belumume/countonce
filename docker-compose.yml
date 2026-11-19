@@ -1,0 +1,25 @@
+# The whole system in containers: the API with its database, and Node-RED with the MQTT broker.
+# Put COUNTONCE_MQTT_PASSWORD=<password> and COUNTONCE_STAFF_KEY=<key> in a file .env next to this one, then:
+#   docker compose up --build
+# Then, on this computer only: dashboard http://localhost:8788, Node-RED http://localhost:1880,
+# alerts http://localhost:1880/dashboard. The API's database lives inside its container, so a rebuild
+# starts it again from the three sample items.
+services:
+  api:
+    build: { context: ., dockerfile: docker/api.Dockerfile }
+    ports: ["127.0.0.1:8788:8788"]
+    environment:
+      COUNTONCE_STAFF_KEY: ${COUNTONCE_STAFF_KEY:-}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8788/api/state').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      retries: 20
+  nodered:
+    build: { context: ., dockerfile: docker/nodered.Dockerfile }
+    ports: ["127.0.0.1:1880:1880", "127.0.0.1:1883:1883"]
+    environment:
+      COUNTONCE_API: http://api:8788
+      COUNTONCE_STAFF_KEY: ${COUNTONCE_STAFF_KEY:-}
+      COUNTONCE_MQTT_PASSWORD: ${COUNTONCE_MQTT_PASSWORD:?set COUNTONCE_MQTT_PASSWORD first}
+    depends_on:
+      api: { condition: service_healthy }

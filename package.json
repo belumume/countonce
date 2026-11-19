@@ -1,0 +1,22 @@
+{
+  "name": "countonce",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CountOnce: stock API, dashboard, staff app and Node-RED flows",
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "db:local": "wrangler d1 migrations apply countonce --local",
+    "db:remote": "wrangler d1 migrations apply countonce --remote",
+    "predeploy": "node -e \"require('fs').existsSync('public/app/index.html') || (console.error('Run npm run build:app first, or the staff app disappears from the live site.'), process.exit(1))\"",
+    "deploy": "wrangler pages deploy --project-name countonce --branch main",
+    "check": "node demo/check.mjs",
+    "build:app": "cd app && flutter build web --release --base-href /app/ && node -e \"const fs = require('fs'); fs.rmSync('../public/app', { recursive: true, force: true }); fs.cpSync('build/web', '../public/app', { recursive: true, filter: (f) => !f.endsWith('.symbols') })\"",
+    "simulate": "node sim/simulate.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

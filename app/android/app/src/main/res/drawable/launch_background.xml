@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Start screen before Android 12: the amber 1× tag on paper -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/brand_paper" />
+    <item>
+        <bitmap android:gravity="center" android:src="@mipmap/launch_mark" />
+    </item>
+</layer-list>

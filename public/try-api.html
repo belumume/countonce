@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1a1d21">
+<title>CountOnce API: try it</title>
+<meta name="description" content="Call the CountOnce stock API from your browser: read the stock, take items out of your own practice stock, and send the same request twice to see it counted once.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="CountOnce">
+<meta property="og:title" content="CountOnce API: try it">
+<meta property="og:description" content="Send real requests to the CountOnce stock API from your browser and see a repeated request counted once.">
+<meta property="og:url" content="https://countonce.pages.dev/try-api">
+<meta property="og:image" content="https://countonce.pages.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The CountOnce staff app beside the dashboard, both showing the same practice stock">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://countonce.pages.dev/try-api">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Regular.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-SemiBold.woff2) format("woff2"); font-weight: 600; font-display: swap; }
+  @font-face { font-family: "Plex Sans"; src: url(fonts/IBMPlexSans-Bold.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+  @font-face { font-family: "Plex Mono"; src: url(fonts/IBMPlexMono-Medium.woff2) format("woff2"); font-weight: 500; font-display: swap; }
+  :root {
+    --paper: #f5f3ee; --surface: #ffffff; --ink: #1a1d21; --muted: #4f5660; --line: #ddd8ce; --amber: #f2b21b;
+    --ok: #1b7a46; --ok-bg: #e5f2ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+    --sans: "Plex Sans", system-ui, sans-serif; --mono: "Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.45 var(--sans); }
+  a { color: inherit; }
+  a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+  header { background: var(--ink); color: var(--paper); }
+  .top { max-width: 1100px; margin: 0 auto; padding: 14px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .mark { width: 34px; height: 34px; border-radius: 7px; background: var(--amber); color: var(--ink); display: grid; place-items: center; font: 600 13px var(--mono); flex: none; }
+  h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  nav { display: flex; gap: 2px; margin-left: auto; }
+  nav a { color: var(--paper); font-weight: 600; font-size: 15px; padding: 0 10px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 6px; text-decoration: none; }
+  nav a:hover { background: rgb(245 243 238 / .12); }
+  nav a[aria-current="page"] { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
+  ul.routes { margin: 0; padding-left: 20px; font-size: 14px; color: var(--muted); display: grid; gap: 4px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 24px 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .card > * { min-width: 0; }
+  h2 { margin: 0 0 4px; font-size: 22px; }
+  .lead { margin: 0; color: var(--muted); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px; }
+  .card h3 { margin: 0; font-size: 17px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .verb { font: 600 13px var(--mono); padding: 1px 7px; border-radius: 4px; background: var(--ink); color: var(--paper); }
+  code, pre, .mono { font-family: var(--mono); }
+  .path { font: 500 15px var(--mono); }
+  .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  label { font-size: 14px; font-weight: 600; display: grid; gap: 4px; }
+  input, select { font: 500 15px var(--mono); padding: 0 10px; min-height: 44px; border: 1px solid #8a8f96; border-radius: 6px; background: var(--surface); color: var(--ink); }
+  input.rid { width: min(100%, 360px); }
+  .row > label { max-width: 100%; min-width: 0; }
+  select { max-width: 100%; width: 100%; }
+  .row > label { flex: 0 1 auto; }
+  .btn { border: 0; background: var(--amber); color: var(--ink); font: 700 15px var(--sans); padding: 0 16px; min-height: 44px; border-radius: 8px; cursor: pointer; }
+  .btn.quiet { background: transparent; border: 1.5px solid var(--ink); }
+  pre { margin: 0; background: var(--ink); color: #f5f3ee; border-radius: 8px; padding: 12px 14px; font-size: 13.5px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; max-height: 340px; }
+  pre .k { color: #f2b21b; }
+  .status { font: 600 14px var(--mono); }
+  .say { margin: 0; padding: 10px 12px; border-radius: 8px; font-weight: 600; }
+  .say.good { background: var(--ok-bg); color: var(--ok); border: 1px solid var(--ok); }
+  .say.wrong { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); }
+  .say:empty { display: none; }
+  .note { margin: 0; font-size: 14px; color: var(--muted); }
+  @media (max-width: 520px) { .top, main { padding-left: 12px; padding-right: 12px; } nav { margin-left: -10px; width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="mark" aria-hidden="true">1×</div>
+    <h1>CountOnce API</h1>
+    <nav aria-label="Site"><a href="/">Dashboard</a><a href="/try">Try it</a><a href="/try-api" aria-current="page">API</a><a href="/labels">Labels</a></nav>
+  </div>
+</header>
+<main>
+  <div>
+    <h2>Call the API from this page</h2>
+    <p class="lead">The CountOnce API is the service the staff app and the dashboard both talk to. Here you can send it the same requests they send and read its answers. These are real requests, and they change only your practice stock.</p>
+  </div>
+
+  <section class="card" aria-labelledby="c1">
+    <h3 id="c1"><span class="verb">GET</span><span class="path">/api/state</span></h3>
+    <p class="note">Returns the real stock, its last 20 changes (the <code>movements</code> list) and the supplier orders. Anyone can read it. <a href="/api/state">Open the raw JSON</a>.</p>
+    <div class="row"><button class="btn" id="get-real" type="button">Send</button></div>
+    <div class="status" id="s1" aria-live="polite"></div>
+    <pre id="o1" hidden></pre>
+  </section>
+
+  <section class="card" aria-labelledby="c2">
+    <h3 id="c2"><span class="verb">POST</span><span class="path">/api/move</span><span class="note">Take items out of your practice stock, or put items in.</span></h3>
+    <p class="note">Each request carries an id in its <code>request_id</code> field. The staff app makes one on the phone at each scan. If the same request arrives again with the same id, the API changes nothing and replies with the first answer, marked <code>"repeated": true</code>.</p>
+    <div class="row">
+      <label>Item <select id="item"></select></label>
+      <label>Change <select id="delta"><option value="-1">Take 1 out (−1)</option><option value="-6">Take 6 out (−6)</option><option value="5">Put 5 in (+5)</option></select></label>
+    </div>
+    <div class="row">
+      <label>Request id (request_id) <input class="rid" id="rid" autocomplete="off" spellcheck="false"></label>
+      <button class="btn quiet" id="newid" type="button">New id</button>
+    </div>
+    <div class="row">
+      <button class="btn" id="send" type="button">Send</button>
+      <button class="btn quiet" id="again" type="button" disabled>Send the same request again</button>
+    </div>
+    <div class="status" id="s2" aria-live="polite"></div>
+    <p class="say" id="say" role="status"></p>
+    <pre id="o2" hidden></pre>
+  </section>
+
+  <section class="card" aria-labelledby="c3">
+    <h3 id="c3"><span class="verb">GET</span><span class="path">/api/state?visitor=<span id="vidpath"></span></span></h3>
+    <p class="note">Shows your practice stock after your requests. The <a href="/try" id="trylink">Try it</a> page shows the same items in the staff app and on the dashboard.</p>
+    <div class="row"><button class="btn" id="get-mine" type="button">Send</button></div>
+    <p class="note" id="made" hidden>When this page opened, it sent this request. It makes your practice stock if you have none yet, and returns it:</p>
+    <div class="status" id="s3" aria-live="polite"></div>
+    <pre id="o3" hidden></pre>
+  </section>
+
+  <section class="card" aria-labelledby="c4">
+    <h3 id="c4">The other routes</h3>
+    <ul class="routes">
+      <li><code>GET /api/history?item=GLOVE-M</code>: one item's changes, with the stock after each.</li>
+      <li><code>POST /api/order</code>: raises a supplier order if the item is at or below its reorder level and has no open order. The API decides how many to order.</li>
+      <li><code>POST /api/order/received</code>: records a delivery. Sending it twice adds the stock once.</li>
+      <li><code>POST /api/visitor</code>: creates a visitor's practice stock, or returns it if it already exists.</li>
+    </ul>
+    <p class="note">Changes to the real items need the <code>x-staff-key</code> header.</p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const make = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32]).join("");
+let visitor = null;
+try { visitor = localStorage.getItem("countonce.visitor"); } catch {}
+if (!/^[A-Z0-9]{8}$/.test(visitor ?? "")) visitor = make();
+try { localStorage.setItem("countonce.visitor", visitor); } catch {}
+$("vidpath").textContent = visitor;
+
+const show = (n, req, status, ms, body) => {
+  $("s" + n).textContent = `${req}  →  HTTP ${status} in ${ms} ms`;
+  $("o" + n).hidden = false;
+  $("o" + n).textContent = JSON.stringify(body, null, 2);
+};
+async function call(n, method, path, body) {
+  const t = performance.now();
+  try {
+    const r = await fetch(path, { method, headers: body ? { "content-type": "application/json" } : {}, body: body && JSON.stringify(body) });
+    const json = await r.json();
+    show(n, `${method} ${path}`, r.status, Math.round(performance.now() - t), body ? { request: body, answer: json } : json);
+    return { status: r.status, ...json };
+  } catch (e) {
+    $("s" + n).textContent = `${method} ${path}  →  no answer (${e.message}). Try again.`;
+    return null;
+  }
+}
+
+async function loadItems() {
+  const v = await call(3, "POST", "/api/visitor", { visitor });
+  if (!v) return;
+  $("made").hidden = false;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  $("item").innerHTML = v.items.map((i) => `<option value="${esc(i.id)}">${esc(i.name)}</option>`).join("");
+  $("item").value = v.items.find((i) => i.id.endsWith("G"))?.id ?? v.items[0]?.id;
+}
+const newId = () => { $("rid").value = crypto.randomUUID(); $("again").disabled = true; $("say").textContent = ""; $("say").className = "say"; };
+$("newid").onclick = newId;
+$("get-real").onclick = () => call(1, "GET", "/api/state");
+$("get-mine").onclick = () => { $("made").hidden = true; call(3, "GET", "/api/state?visitor=" + visitor); };
+let firstAnswer = null;
+async function move(repeat) {
+  const body = { request_id: $("rid").value.trim(), item_id: $("item").value, delta: Number($("delta").value), staff: "API page" };
+  // One live announcement per press: on a repeat, the verdict line below speaks and the raw answer stays quiet.
+  $("s2").setAttribute("aria-live", repeat ? "off" : "polite");
+  const r = await call(2, "POST", "/api/move", body);
+  if (!r) return;
+  if (!repeat) {
+    firstAnswer = r;
+    $("again").disabled = false;
+    $("say").className = "say";
+    $("say").textContent = "";
+  } else if (r.repeated && r.outcome === "refused") {
+    $("say").className = "say good";
+    $("say").textContent = `Refused once, and refused again with the same answer: nothing changed, stock is still ${r.qty}.`;
+  } else if (r.repeated) {
+    $("say").className = "say good";
+    $("say").textContent = `Counted once. The id was the same, so nothing changed: stock is still ${r.qty}, as in the first answer.`;
+  } else if (r.status === 409 && r.error) {
+    $("say").className = "say good";
+    $("say").textContent = "Refused: this id was already used for a different item or change. Each request id belongs to one request.";
+  } else {
+    $("say").className = "say wrong";
+    $("say").textContent = "The API treated this as a new request. Did the id, item or change differ from the first?";
+  }
+}
+$("send").onclick = () => move(false);
+$("again").onclick = () => move(true);
+$("rid").oninput = () => { $("again").disabled = true; };
+newId();
+loadItems();
+</script>
+</body>
+</html>

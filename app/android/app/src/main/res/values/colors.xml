@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's colours, the same as lib/ui/theme.dart -->
+    <color name="brand_amber">#F2B21B</color>
+    <color name="brand_ink">#1A1D21</color>
+    <color name="brand_paper">#F5F3EE</color>
+</resources>
