@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:mobile_scanner/mobile_scanner.dart' show MobileScannerPlatform;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'data/api.dart';
@@ -22,6 +23,9 @@ Future<void> main() async {
   // In a browser, build the accessibility tree from the start, so screen readers and keyboard users
   // do not first have to find Flutter's "Enable accessibility" button.
   if (kIsWeb) SemanticsBinding.instance.ensureSemantics();
+  // Browsers without a built-in barcode reader decode with zxing-wasm. Load it from this site
+  // (web/vendor/zxing-wasm), not from jsDelivr, so scanning also works where that is blocked.
+  if (kIsWeb) MobileScannerPlatform.instance.setBarcodeLibraryScriptUrl('vendor/zxing-wasm/index.js');
   final base = kIsWeb && const String.fromEnvironment('API').isEmpty ? Uri.base : Uri.parse(_api);
   final prefs = await SharedPreferences.getInstance();
   await migrateLegacyKeys(prefs); // before the outbox and the logic read storage

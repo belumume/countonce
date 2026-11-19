@@ -41,6 +41,7 @@
   #updated { margin-left: auto; font-size: 14px; color: #d9d5cc; display: flex; align-items: center; gap: 8px; text-align: right; }
   #updated::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #7fd3a4; flex: none; }
   #updated.stale::before { background: var(--amber); }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   main { max-width: var(--page-width); margin: 0 auto; padding: 20px 24px 48px; display: grid; grid-template-columns: 5fr 6fr; gap: 20px; align-items: start; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .wide { grid-column: 1 / -1; }
@@ -129,6 +130,7 @@
     <nav aria-label="Site"><a href="/" aria-current="page">Dashboard</a><a href="/try">Try it</a><a href="/try-api">API</a><a href="/labels">Labels</a><a href="/demo.mp4">Video</a></nav>
   </div>
 </header>
+<p class="sr-only" id="connsay" role="status"></p>
 <div class="vbar" id="vbar" hidden><div>Practice stock: your own copies of the three items. The real stock is not affected.</div></div>
 <main>
   <div id="alerts" class="wide" role="status" aria-live="polite"></div>
@@ -296,12 +298,19 @@ const post = (path, body, key = "") =>
     .then(async (r) => ({ status: r.status, ...(await r.json()) }));
 
 // "Updated just now" while the page is getting answers; says how old the data is when it is not.
-let lastOk = 0;
+// The visible text changes every minute, so screen readers hear only the change itself, once, from #connsay.
+// Reads stop while the tab is hidden, so the connection is only judged while the page is shown, counting
+// from the moment it was shown again (shownAt); otherwise a tab back from the background would say "lost".
+let lastOk = 0, wasStale = false, shownAt = Date.now();
 function showUpdated() {
-  if (!lastOk) return;
-  // In whole minutes, so the text changes rarely.
+  if (!lastOk || document.hidden) return;
+  const stale = Date.now() - Math.max(lastOk, shownAt) > 15000;
+  // How old the stock on screen is, in whole minutes, so the text changes rarely.
   const s = Math.round((Date.now() - lastOk) / 1000);
-  const stale = s > 15;
+  if (stale !== wasStale) {
+    wasStale = stale;
+    $("connsay").textContent = stale ? "Connection lost. The stock shown may be out of date." : "Connection back. The stock is up to date.";
+  }
   const min = Math.max(1, Math.round(s / 60));
   $("updated").className = stale ? "stale" : "";
   $("updated").textContent = !stale ? "Updated just now"
@@ -549,7 +558,11 @@ $("orders").onclick = async (e) => {
   }
 };
 post("/api/reset", { item_id: ITEM, qty: 1 }).then(() => refresh())
-  .catch(() => { $("updated").className = "stale"; $("updated").textContent = "Could not reach the server. Reload the page."; });
+  .catch(() => {
+    $("updated").className = "stale";
+    wasStale = true; // the first good read then says "Connection back" in place of this message
+    $("updated").textContent = $("connsay").textContent = "Could not reach the server. Reload the page.";
+  });
 // A missed refresh leaves the last result on screen; the next one catches up.
 // Reads stop while the tab is hidden, so a tab left open in the background costs no requests,
 // and start again with an immediate read when it is shown.
@@ -557,7 +570,7 @@ let poll = null;
 const startPolling = () => { if (!poll) poll = setInterval(() => refresh(true).catch(() => {}), 3000); };
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { clearInterval(poll); poll = null; }
-  else { refresh(true).catch(() => {}); startPolling(); }
+  else { shownAt = Date.now(); refresh(true).catch(() => {}); startPolling(); }
 });
 if (!document.hidden) startPolling();
 </script>

@@ -10,7 +10,7 @@
     "predeploy": "node -e \"require('fs').existsSync('public/app/index.html') || (console.error('Run npm run build:app first, or the staff app disappears from the live site.'), process.exit(1))\"",
     "deploy": "wrangler pages deploy --project-name countonce --branch main",
     "check": "node demo/check.mjs",
-    "build:app": "cd app && flutter build web --release --base-href /app/ && node -e \"const fs = require('fs'); fs.rmSync('../public/app', { recursive: true, force: true }); fs.cpSync('build/web', '../public/app', { recursive: true, filter: (f) => !f.endsWith('.symbols') })\"",
+    "build:app": "cd app && flutter build web --release --no-web-resources-cdn --base-href /app/ && node tool/fetch_fallback_fonts.mjs build/web && node tool/copy_web_build.mjs build/web ../public/app",
     "simulate": "node sim/simulate.mjs"
   },
   "devDependencies": {

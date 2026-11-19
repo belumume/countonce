@@ -48,6 +48,10 @@ flutter build apk     # the Android app, using the live site; add --dart-define=
 In a browser, the app has to come from the same address as the API: `npm run build:app` builds it into
 `public/app/`, then `npm run dev` serves it at http://localhost:8788/app/. On the live site it is at `/app/`.
 `npm run deploy` refuses to run until `build:app` has been run, so the app is never left out.
+The build carries its own copy of Flutter's rendering engine and of the fallback fonts for scripts IBM Plex
+does not cover (Arabic, emoji, Chinese and others; `app/tool/fetch_fallback_fonts.mjs`), and of the barcode
+decoder that browsers without a built-in barcode reader use (`app/web/vendor/zxing-wasm`). The app makes no
+requests to other sites, so it also starts and scans on networks that block Google or jsDelivr.
 Enter your name and the staff key once; tap the name chip to change them. "Try it as a visitor" on
 the sign-in screen works on the visitor's own demo items with no key, and adds a "No signal" switch
 that makes the app behave exactly as with no network. In a browser, `/app/?visitor=<id>` opens visitor
